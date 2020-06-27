@@ -9,6 +9,7 @@
   "author": "Taneli Salonen",
   "license": "ISC",
   "dependencies": {
+    "@google-cloud/bigquery": "^5.0.0",
     "chromeless": "^1.5.2"
   }
 }
