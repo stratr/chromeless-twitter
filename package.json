@@ -1,0 +1,14 @@
+{
+  "name": "chromeless-twitter",
+  "version": "1.0.0",
+  "description": "Fetch tweets from the Twitter web site",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Taneli Salonen",
+  "license": "ISC",
+  "dependencies": {
+    "chromeless": "^1.5.2"
+  }
+}
