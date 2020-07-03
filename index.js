@@ -6,7 +6,7 @@ const bigquery = new BigQuery();
 const datasetId = 'tweets_eu'
 const tableId = 'chromeless_tweets'
 
-const tweetIds = ['1276833682775576582', '1276567729739386887']
+//const tweetIds = ['1276833682775576582', '1276567729739386887']
 const tweetURL = 'https://twitter.com/i/web/status/'
 const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36'
 
@@ -16,7 +16,13 @@ function sleep() {
   })
 }
 
-async function run() {
+async function main() {
+  const tweetIds = await queryIds()
+  // console.log(tweetIds)
+  fetchTweets(tweetIds)
+}
+
+async function fetchTweets(tweetIds) {
   try {
     const masterChromeless = new Chromeless()
 
@@ -29,7 +35,7 @@ async function run() {
       return new Promise((resolve, reject) => {
         const chromeless = new Chromeless({
           launchChrome: false,
-          waitTimeout: 20000
+          waitTimeout: 100000
         })
         chromeless
           .setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36')
@@ -64,16 +70,7 @@ async function run() {
   }
 }
 
-run()
-
 async function insertRowsAsStream(rows) {
-  // Inserts the JSON objects into my_dataset:my_table.
-
-  /**
-   * TODO(developer): Uncomment the following lines before running the sample.
-   */
-  // const datasetId = 'my_dataset';
-  // const tableId = 'my_table';
   // const rows = [
   //   {name: 'Tom', age: 30},
   //   {name: 'Jane', age: 32},
@@ -87,4 +84,28 @@ async function insertRowsAsStream(rows) {
   console.log(`Inserted ${rows.length} rows`);
 }
 
-// run().catch(console.error.bind(console))
+async function queryIds() {
+  const query = `SELECT
+  DISTINCT id_str
+FROM
+  \`tanelis.tweets_eu.missing_full_text\`
+LIMIT
+  50`;
+
+  const options = {
+    query: query,
+    location: 'EU',
+  };
+
+  // Run the query as a job
+  const [job] = await bigquery.createQueryJob(options);
+  console.log(`Job ${job.id} started.`);
+
+  // Wait for the query to finish
+  const [rows] = await job.getQueryResults();
+
+  return rows.map(tweet => {return tweet.id_str});
+}
+
+//run()
+main()
