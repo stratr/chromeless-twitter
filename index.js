@@ -6,7 +6,8 @@ const bigquery = new BigQuery();
 const datasetId = 'tweets_eu'
 const tableId = 'chromeless_tweets'
 
-const urls = ['https://twitter.com/MariaOhisalo/status/1276833682775576582', 'https://twitter.com/hjallisharkimo/status/1276567729739386887']
+const tweetIds = ['1276833682775576582', '1276567729739386887']
+const tweetURL = 'https://twitter.com/i/web/status/'
 const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36'
 
 function sleep() {
@@ -21,16 +22,25 @@ async function run() {
 
     await sleep() // Needed to wait for Chrome to start up
 
-    const promises = urls.map(url => {
+    const promises = tweetIds.map(id => {
+      const url = tweetURL + id
+      const id_str = id
+
       return new Promise((resolve, reject) => {
-        const chromeless = new Chromeless({ launchChrome: false })
+        const chromeless = new Chromeless({
+          launchChrome: false,
+          waitTimeout: 20000
+        })
         chromeless
           .setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36')
           .goto(url)
           .wait('article[role="article"]')
-          .evaluate(() => {
-            return document.title.split('"')[1] // the actual tweet content
-          })
+          .evaluate((id_str) => {
+            return {
+              id_str: id_str,
+              text: document.title.split('"')[1] // the actual tweet content
+            }
+          }, id)
           .then(async evaluate => {
             await chromeless.end()
             resolve(evaluate)
@@ -41,7 +51,12 @@ async function run() {
 
     const tweets = await Promise.all(promises)
 
-    tweets.forEach(tweet => console.log(`Tweet: ${tweet}`))
+    tweets.forEach((tweet) => {
+      // console.log(`Tweet: ${tweet}`)
+      console.log(tweet)
+    })
+
+    insertRowsAsStream(tweets)
 
     //await masterChromeless.end()
   } catch (err) {
@@ -50,33 +65,6 @@ async function run() {
 }
 
 run()
-
-// async function run() {
-//   // fetch the title of each tweet page
-//   const tweetPromises = []
-//   urls.forEach(url => {
-//     const chromeless = new Chromeless()
-//     const tweetTitle = chromeless
-//       .setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36')
-//       .goto(url)
-//       .wait('article[role="article"]')
-//       .evaluate(() => {
-//         return document.title.split('"')[1] // the actual tweet content
-//       })
-
-//     tweetPromises.push(tweetTitle)
-//   })
-
-//   Promise.all(tweetPromises)
-//     .then((tweets) => {
-//       console.log(tweets);
-//     })
-//     .catch(error => {
-//       console.error(error.message)
-//     });
-
-//   await chromeless.end()
-// }
 
 async function insertRowsAsStream(rows) {
   // Inserts the JSON objects into my_dataset:my_table.
