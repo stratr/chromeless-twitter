@@ -7,24 +7,35 @@ const datasetId = 'tweets_eu'
 const tableId = 'chromeless_tweets'
 
 //const tweetIds = ['1276833682775576582', '1276567729739386887']
+const sqlLimit = '10'
 const tweetURL = 'https://twitter.com/i/web/status/'
 const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36'
 
-function sleep() {
+function sleep(timeSeconds) {
+  if (timeSeconds === null) {timeSeconds = 2}
   return new Promise(resolve => {
-    setTimeout(resolve, 2000)
+    setTimeout(resolve, timeSeconds*1000)
   })
 }
 
 async function main() {
-  const tweetIds = await queryIds()
-  // console.log(tweetIds)
-  fetchTweets(tweetIds)
+  // run the process multiple times
+  const runs = 100;
+  for (let i = 0; i < runs; i++) {
+    const tweetIds = await queryIds()
+    if (tweetIds.length > 0) {
+      await fetchTweets(tweetIds)
+    } else {
+      console.log('No more tweets to fetch')
+    }
+    await sleep(10)
+  }
 }
 
 async function fetchTweets(tweetIds) {
   try {
     const masterChromeless = new Chromeless()
+    const heading404 = 'h1[data-testid="error-detail"]'
 
     await sleep() // Needed to wait for Chrome to start up
 
@@ -35,16 +46,20 @@ async function fetchTweets(tweetIds) {
       return new Promise((resolve, reject) => {
         const chromeless = new Chromeless({
           launchChrome: false,
-          waitTimeout: 100000
+          waitTimeout: 50000
         })
         chromeless
           .setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36')
           .goto(url)
-          .wait('article[role="article"]')
+          .wait(`article[role="article"], ${heading404}`)
+          //.wait('body')
           .evaluate((id_str) => {
+            const firstIndex = document.title.indexOf('"')
+            const lastIndex = document.title.lastIndexOf('"')
+            const docTitle = document.title.indexOf('"') > -1 ? document.title.slice(firstIndex, lastIndex) : document.title
             return {
               id_str: id_str,
-              text: document.title.split('"')[1] // the actual tweet content
+              text: docTitle // the actual tweet content
             }
           }, id)
           .then(async evaluate => {
@@ -62,7 +77,7 @@ async function fetchTweets(tweetIds) {
       console.log(tweet)
     })
 
-    insertRowsAsStream(tweets)
+    await insertRowsAsStream(tweets.filter(tweet => {return tweet.text !== ''}))
 
     //await masterChromeless.end()
   } catch (err) {
@@ -90,7 +105,7 @@ async function queryIds() {
 FROM
   \`tanelis.tweets_eu.missing_full_text\`
 LIMIT
-  50`;
+  ${sqlLimit}`;
 
   const options = {
     query: query,
